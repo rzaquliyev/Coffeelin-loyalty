@@ -1,21 +1,45 @@
 import { COOKIE_NAME } from "@shared/const";
+import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
-import { z } from "zod";
 import {
-  getCustomerByPhone,
-  getCustomerById,
   createCustomer,
-  updateCustomer,
+  getCustomerById,
+  getCustomerByPhone,
   getAllCustomers,
+  updateCustomerPassKitId,
+  getCustomerByPassKitId,
+  updateCustomerBalance,
+  updateCustomerTier,
   createTransaction,
-  getCustomerTransactions,
+  getTransactionsByCustomerId,
   getAllTransactions,
 } from "./db";
+import {
+  createPassKitMember,
+  getPassKitMember,
+  updatePassKitMemberPoints,
+  updatePassKitMemberTier,
+  extractMemberIdFromQR,
+  checkPassKitCredentials,
+} from "./passkit-api";
+
+/**
+ * Tier hesablama funksiyası
+ * 0-99 xal: Silver
+ * 100-199 xal: Gold
+ * 200+ xal: Platinum
+ */
+function calculateTier(bonusBalance: number): string {
+  if (bonusBalance >= 200) return "Platinum";
+  if (bonusBalance >= 100) return "Gold";
+  return "Silver";
+}
 
 export const appRouter = router({
   system: systemRouter,
+  
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -27,172 +51,285 @@ export const appRouter = router({
     }),
   }),
 
-  // Customer management
+  /**
+   * Müştəri əməliyyatları
+   */
   customer: router({
-    // Get customer by phone number (for login)
-    getByPhone: publicProcedure
-      .input(z.object({ phoneNumber: z.string() }))
-      .query(async ({ input }) => {
-        return await getCustomerByPhone(input.phoneNumber);
-      }),
-
-    // Get customer by ID
-    getById: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return await getCustomerById(input.id);
-      }),
-
-    // Create new customer
+    /**
+     * Yeni müştəri yaradır və PassKit-ə sinxronizasiya edir
+     */
     create: publicProcedure
       .input(
         z.object({
-          phoneNumber: z.string(),
-          name: z.string(),
-          passkitMemberId: z.string().optional(),
+          name: z.string().min(1, "Ad daxil edilməlidir"),
+          phoneNumber: z.string().min(9, "Telefon nömrəsi düzgün deyil"),
         })
       )
       .mutation(async ({ input }) => {
-        await createCustomer({
-          phoneNumber: input.phoneNumber,
+        // 1. Database-ə müştəri əlavə et
+        const customer = await createCustomer({
           name: input.name,
-          passkitMemberId: input.passkitMemberId,
+          phoneNumber: input.phoneNumber,
           bonusBalance: 0,
           tier: "Silver",
         });
-        return { success: true };
+
+        // 2. PassKit-ə göndər (əgər credentials varsa)
+        if (checkPassKitCredentials()) {
+          try {
+            const passkitMember = await createPassKitMember({
+              externalId: customer.id.toString(),
+              displayName: input.name,
+              mobileNumber: input.phoneNumber,
+              points: 0,
+              tierName: "Silver",
+            });
+
+            // 3. PassKit Member ID-ni database-də saxla
+            await updateCustomerPassKitId(customer.id, passkitMember.id);
+
+            console.log(`[PassKit] Member yaradıldı: ${passkitMember.id} (${input.name})`);
+            
+            return {
+              ...customer,
+              passkitMemberId: passkitMember.id,
+            };
+          } catch (error: any) {
+            console.error('[PassKit] Member yaratma xətası:', error.message);
+            // Xəta olsa belə, müştəri database-də saxlanılır
+          }
+        }
+
+        return customer;
       }),
 
-    // Update customer
-    update: protectedProcedure
-      .input(
-        z.object({
-          id: z.number(),
-          name: z.string().optional(),
-          bonusBalance: z.number().optional(),
-          tier: z.enum(["Silver", "Gold", "Platinum"]).optional(),
-          passkitMemberId: z.string().optional(),
-        })
-      )
-      .mutation(async ({ input }) => {
-        const { id, ...updates } = input;
-        await updateCustomer(id, updates);
-        return { success: true };
+    /**
+     * Telefon nömrəsi ilə müştəri axtarışı
+     */
+    getByPhone: publicProcedure
+      .input(z.object({ phoneNumber: z.string() }))
+      .query(async ({ input }) => {
+        const customer = await getCustomerByPhone(input.phoneNumber);
+        
+        if (!customer) {
+          throw new Error("Müştəri tapılmadı");
+        }
+
+        return customer;
       }),
 
-    // Get all customers (admin only)
-    getAll: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "admin") {
-        throw new Error("Unauthorized");
-      }
+    /**
+     * QR kod ilə müştəri axtarışı
+     */
+    getByQRCode: publicProcedure
+      .input(z.object({ qrCode: z.string() }))
+      .query(async ({ input }) => {
+        if (!checkPassKitCredentials()) {
+          throw new Error("PassKit credentials konfiqurasiya edilməyib");
+        }
+
+        try {
+          // 1. QR koddan Member ID çıxart
+          const memberId = extractMemberIdFromQR(input.qrCode);
+
+          // 2. PassKit-dən member məlumatlarını al
+          const passkitMember = await getPassKitMember(memberId);
+
+          // 3. Database-dən müştəri tap
+          const customer = await getCustomerByPassKitId(passkitMember.id);
+
+          if (!customer) {
+            throw new Error("Müştəri database-də tapılmadı");
+          }
+
+          return customer;
+        } catch (error: any) {
+          console.error('[PassKit] QR kod oxuma xətası:', error.message);
+          throw new Error(`QR kod oxuna bilmədi: ${error.message}`);
+        }
+      }),
+
+    /**
+     * ID ilə müştəri məlumatlarını alır
+     */
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const customer = await getCustomerById(input.id);
+        
+        if (!customer) {
+          throw new Error("Müştəri tapılmadı");
+        }
+
+        return customer;
+      }),
+
+    /**
+     * Bütün müştəriləri siyahısını alır
+     */
+    list: publicProcedure.query(async () => {
       return await getAllCustomers();
     }),
   }),
 
-  // Transaction management
+  /**
+   * Bonus əməliyyatları
+   */
   transaction: router({
-    // Get customer transactions
-    getByCustomer: publicProcedure
-      .input(z.object({ customerId: z.number() }))
-      .query(async ({ input }) => {
-        return await getCustomerTransactions(input.customerId);
-      }),
-
-    // Create transaction (add or redeem points)
-    create: protectedProcedure
+    /**
+     * Yeni bonus əməliyyatı yaradır və PassKit-ə sinxronizasiya edir
+     */
+    create: publicProcedure
       .input(
         z.object({
           customerId: z.number(),
-          type: z.enum(["earned", "redeemed"]),
-          amount: z.number(),
+          amount: z.number().min(1, "Bonus miqdarı 0-dan böyük olmalıdır"),
           spentAmount: z.string().optional(),
           note: z.string().optional(),
         })
       )
-      .mutation(async ({ input, ctx }) => {
-        // Create transaction
-        await createTransaction({
-          customerId: input.customerId,
-          type: input.type,
-          amount: input.amount,
-          spentAmount: input.spentAmount,
-          performedBy: ctx.user.id,
-          note: input.note,
-        });
-
-        // Update customer balance
+      .mutation(async ({ input }) => {
+        // 1. Müştəri məlumatlarını al
         const customer = await getCustomerById(input.customerId);
-        if (customer) {
-          const newBalance =
-            input.type === "earned"
-              ? customer.bonusBalance + input.amount
-              : customer.bonusBalance - input.amount;
-
-          // Calculate new tier based on balance
-          let newTier: "Silver" | "Gold" | "Platinum" = "Silver";
-          if (newBalance >= 200) {
-            newTier = "Platinum";
-          } else if (newBalance >= 100) {
-            newTier = "Gold";
-          }
-
-          await updateCustomer(input.customerId, {
-            bonusBalance: newBalance,
-            tier: newTier,
-          });
+        if (!customer) {
+          throw new Error("Müştəri tapılmadı");
         }
 
-        return { success: true };
+        // 2. Database-ə əməliyyat əlavə et
+        const transaction = await createTransaction({
+          customerId: input.customerId,
+          amount: input.amount,
+          type: "earned",
+          note: input.note || `${input.spentAmount || ""} xərcləmə`,
+          spentAmount: input.spentAmount,
+        });
+
+        // 3. Müştərinin yeni balansını hesabla
+        const newBalance = customer.bonusBalance + input.amount;
+
+        // 4. Database-də bonus balansını yenilə
+        await updateCustomerBalance(customer.id, newBalance);
+
+        // 5. Tier yoxla və yüksəlt
+        const newTier = calculateTier(newBalance);
+        let tierChanged = false;
+
+        if (newTier !== customer.tier) {
+          await updateCustomerTier(customer.id, newTier);
+          tierChanged = true;
+          console.log(`[Tier] ${customer.name} tier yüksəldi: ${customer.tier} → ${newTier}`);
+        }
+
+        // 6. PassKit-ə sinxronizasiya et
+        if (checkPassKitCredentials() && customer.passkitMemberId) {
+          try {
+            // Bonus balansını yenilə
+            await updatePassKitMemberPoints({
+              memberId: customer.passkitMemberId,
+              points: newBalance,
+              transactionType: "earn",
+              transactionValue: input.amount,
+              transactionDescription: input.note || `${input.spentAmount || ""} xərcləmə`,
+            });
+
+            console.log(`[PassKit] Bonus yeniləndi: ${customer.name} - ${newBalance} bonus`);
+
+            // Tier dəyişdisə, PassKit-ə göndər
+            if (tierChanged) {
+              await updatePassKitMemberTier(customer.passkitMemberId, newTier);
+              console.log(`[PassKit] Tier yeniləndi: ${customer.name} - ${newTier}`);
+            }
+          } catch (error: any) {
+            console.error('[PassKit] Sinxronizasiya xətası:', error.message);
+            // Xəta olsa belə, əməliyyat database-də saxlanılır
+          }
+        }
+
+        return {
+          transaction,
+          newBalance,
+          newTier,
+          tierChanged,
+        };
       }),
 
-    // Get all transactions (admin only)
-    getAll: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.role !== "admin") {
-        throw new Error("Unauthorized");
-      }
+    /**
+     * Müştərinin bütün əməliyyatlarını alır
+     */
+    getByCustomerId: publicProcedure
+      .input(z.object({ customerId: z.number() }))
+      .query(async ({ input }) => {
+        return await getTransactionsByCustomerId(input.customerId);
+      }),
+
+    /**
+     * Bütün əməliyyatları siyahısını alır
+     */
+    list: publicProcedure.query(async () => {
       return await getAllTransactions();
     }),
   }),
 
-  // Loyalty program operations
-  loyalty: router({
-    // Calculate cashback (5% = 1 bonus per 10 qəpik)
-    calculateCashback: publicProcedure
-      .input(z.object({ spentAmount: z.number() }))
+  /**
+   * Cashback hesablama
+   */
+  cashback: router({
+    /**
+     * 5% cashback hesablayır (1 bonus = 10 qəpik)
+     */
+    calculate: publicProcedure
+      .input(
+        z.object({
+          spentAmount: z.number().min(0, "Məbləğ 0-dan böyük olmalıdır"),
+        })
+      )
       .query(({ input }) => {
-        const cashbackAzn = input.spentAmount * 0.05; // 5% cashback
-        const bonusPoints = Math.floor(cashbackAzn / 0.1); // 1 bonus = 10 qəpik
+        // 5% cashback hesabla
+        const cashbackAZN = input.spentAmount * 0.05;
+        
+        // 1 bonus = 10 qəpik = 0.1 AZN
+        // Bonus = Cashback AZN / 0.1
+        const bonusPoints = Math.floor(cashbackAZN / 0.1);
+
         return {
           spentAmount: input.spentAmount,
-          cashbackAzn: cashbackAzn,
-          bonusPoints: bonusPoints,
+          cashbackPercentage: 5,
+          cashbackAZN,
+          bonusPoints,
+          formula: "1 bonus = 10 qəpik",
         };
       }),
+  }),
 
-    // Get tier info
-    getTierInfo: publicProcedure
-      .input(z.object({ points: z.number() }))
-      .query(({ input }) => {
-        let tier: "Silver" | "Gold" | "Platinum" = "Silver";
-        let nextTier: string | null = "Gold";
-        let pointsToNext = 100 - input.points;
+  /**
+   * Statistika
+   */
+  stats: router({
+    /**
+     * Ümumi statistika
+     */
+    overview: publicProcedure.query(async () => {
+      const customers = await getAllCustomers();
+      const transactions = await getAllTransactions();
 
-        if (input.points >= 200) {
-          tier = "Platinum";
-          nextTier = null;
-          pointsToNext = 0;
-        } else if (input.points >= 100) {
-          tier = "Gold";
-          nextTier = "Platinum";
-          pointsToNext = 200 - input.points;
-        }
+      const totalCustomers = customers.length;
+      const totalBonusDistributed = transactions
+        .filter(t => t.type === "earned")
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const tierDistribution = {
+        silver: customers.filter(c => c.tier === "Silver").length,
+        gold: customers.filter(c => c.tier === "Gold").length,
+        platinum: customers.filter(c => c.tier === "Platinum").length,
+      };
 
-        return {
-          currentTier: tier,
-          nextTier,
-          pointsToNext,
-        };
-      }),
+      return {
+        totalCustomers,
+        totalBonusDistributed,
+        totalTransactions: transactions.length,
+        tierDistribution,
+      };
+    }),
   }),
 });
 

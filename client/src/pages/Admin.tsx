@@ -22,15 +22,15 @@ export default function Admin() {
 
   const utils = trpc.useUtils();
 
-  const { data: allCustomers } = trpc.customer.getAll.useQuery(undefined, {
+  const { data: allCustomers } = trpc.customer.list.useQuery(undefined, {
     enabled: user?.role === "admin",
   });
 
-  const { data: allTransactions } = trpc.transaction.getAll.useQuery(undefined, {
+  const { data: allTransactions } = trpc.transaction.list.useQuery(undefined, {
     enabled: user?.role === "admin",
   });
 
-  const cashbackQuery = trpc.loyalty.calculateCashback.useQuery(
+  const cashbackQuery = trpc.cashback.calculate.useQuery(
     { spentAmount: parseFloat(spentAmount) || 0 },
     { enabled: !!spentAmount && parseFloat(spentAmount) > 0 }
   );
@@ -42,8 +42,8 @@ export default function Admin() {
       setSpentAmount("");
       setNote("");
       setSelectedCustomer(null);
-      utils.customer.getAll.invalidate();
-      utils.transaction.getAll.invalidate();
+      utils.customer.list.invalidate();
+      utils.transaction.list.invalidate();
     },
     onError: (error: any) => {
       toast.error("Xəta: " + error.message);
@@ -85,7 +85,6 @@ export default function Admin() {
 
     addBonusMutation.mutate({
       customerId: selectedCustomer.id,
-      type: "earned",
       amount: bonusAmount,
       spentAmount: `${spentAmount} AZN`,
       note: note || `Xərcləmə: ${spentAmount} AZN`,
@@ -259,7 +258,7 @@ export default function Admin() {
                         <div className="flex justify-between">
                           <span>5% Cashback:</span>
                           <span className="font-semibold">
-                            {cashbackQuery.data.cashbackAzn.toFixed(2)} AZN
+                            {cashbackQuery.data.cashbackAZN.toFixed(2)} AZN
                           </span>
                         </div>
                         <Separator />
@@ -308,7 +307,7 @@ export default function Admin() {
               <CardContent>
                 {allCustomers && allCustomers.length > 0 ? (
                   <div className="space-y-3">
-                    {allCustomers.map((customer) => (
+                    {allCustomers.map((customer: any) => (
                       <div key={customer.id} className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between">
                           <div>

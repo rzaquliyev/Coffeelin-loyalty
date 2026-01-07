@@ -32,15 +32,19 @@ export default function Dashboard() {
     { enabled: !!customerId }
   );
 
-  const { data: transactions } = trpc.transaction.getByCustomer.useQuery(
+  const { data: transactions } = trpc.transaction.getByCustomerId.useQuery(
     { customerId: customerId! },
     { enabled: !!customerId }
   );
 
-  const { data: tierInfo } = trpc.loyalty.getTierInfo.useQuery(
-    { points: customer?.bonusBalance || 0 },
-    { enabled: !!customer }
-  );
+  // Tier info hesablama
+  const tierInfo = customer
+    ? {
+        current: customer.tier,
+        next: customer.bonusBalance >= 200 ? null : customer.bonusBalance >= 100 ? "Platinum" : "Gold",
+        pointsToNext: customer.bonusBalance >= 200 ? 0 : customer.bonusBalance >= 100 ? 200 - customer.bonusBalance : 100 - customer.bonusBalance,
+      }
+    : null;
 
   const handleLogout = () => {
     localStorage.removeItem("customerId");
@@ -126,11 +130,11 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {tierInfo && tierInfo.nextTier && (
+            {tierInfo && tierInfo.next && (
               <div className="mt-6 p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-between text-sm mb-2">
                   <span className="font-medium">
-                    {tierInfo.nextTier}-a qədər
+                    {tierInfo.next}-a qədər
                   </span>
                   <span className="text-primary font-bold">
                     {tierInfo.pointsToNext} bonus

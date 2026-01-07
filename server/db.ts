@@ -1,6 +1,6 @@
 import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, customers, transactions, InsertCustomer, InsertTransaction } from "../drizzle/schema";
+import { InsertUser, users, customers, transactions, InsertCustomer, InsertTransaction, Customer, Transaction } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -112,14 +112,17 @@ export async function getCustomerById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function createCustomer(customer: InsertCustomer) {
+export async function createCustomer(customer: InsertCustomer): Promise<Customer> {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
   const result = await db.insert(customers).values(customer);
-  return result;
+  const insertId = Number(result[0].insertId);
+  const newCustomer = await getCustomerById(insertId);
+  if (!newCustomer) throw new Error('Customer yaradıla bilmədi');
+  return newCustomer;
 }
 
 export async function updateCustomer(id: number, updates: Partial<InsertCustomer>) {
@@ -141,14 +144,17 @@ export async function getAllCustomers() {
 }
 
 // Transaction management functions
-export async function createTransaction(transaction: InsertTransaction) {
+export async function createTransaction(transaction: InsertTransaction): Promise<Transaction> {
   const db = await getDb();
   if (!db) {
     throw new Error("Database not available");
   }
 
   const result = await db.insert(transactions).values(transaction);
-  return result;
+  const insertId = Number(result[0].insertId);
+  const newTransaction = await db.select().from(transactions).where(eq(transactions.id, insertId)).limit(1);
+  if (!newTransaction[0]) throw new Error('Transaction yaradıla bilmədi');
+  return newTransaction[0];
 }
 
 export async function getCustomerTransactions(customerId: number) {
@@ -172,3 +178,60 @@ export async function getAllTransactions() {
 
   return await db.select().from(transactions).orderBy(desc(transactions.createdAt));
 }
+
+// PassKit integration functions
+export async function updateCustomerPassKitId(customerId: number, passkitMemberId: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(customers)
+    .set({ passkitMemberId, updatedAt: new Date() })
+    .where(eq(customers.id, customerId));
+}
+
+export async function getCustomerByPassKitId(passkitMemberId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get customer: database not available");
+    return null;
+  }
+
+  const result = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.passkitMemberId, passkitMemberId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateCustomerBalance(customerId: number, newBalance: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(customers)
+    .set({ bonusBalance: newBalance, updatedAt: new Date() })
+    .where(eq(customers.id, customerId));
+}
+
+export async function updateCustomerTier(customerId: number, newTier: string) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const tierValue = newTier as "Silver" | "Gold" | "Platinum";
+  await db
+    .update(customers)
+    .set({ tier: tierValue, updatedAt: new Date() })
+    .where(eq(customers.id, customerId));
+}
+
+// Alias functions for compatibility
+export const getTransactionsByCustomerId = getCustomerTransactions;

@@ -56,3 +56,26 @@
 - [ ] Mobil cihazlarda test
 - [ ] PassKit inteqrasiyasının test edilməsi
 - [ ] İlk checkpoint yaradılması
+
+
+## PassKit Bonus Kartı İnteqrasiyası
+- [ ] PassKit API credentials əldə edilməsi
+- [ ] PassKit Member ID və QR kod strukturunun öyrənilməsi
+- [ ] Müştəri yaradarkən PassKit-ə sinxronizasiya
+- [ ] QR kod oxunduqda PassKit-dən müştəri məlumatlarının alınması
+- [ ] Bonus əlavə edildikdə PassKit-ə sinxronizasiya
+- [ ] Tier yüksəldilməsi zamanı PassKit-ə sinxronizasiya
+- [ ] PassKit credentials konfiqurasiyası təlimatı
+
+
+## PassKit İnteqrasiyası və QR Kod Oxuma
+- [ ] PassKit API helper funksiyalarının backend-ə əlavə edilməsi
+- [ ] QR kod oxuma komponenti yaradılması (react-qr-reader)
+- [ ] Admin panelində QR skan interfeysi
+- [ ] Müştəri yaradılması zamanı PassKit Member yaradılması
+- [ ] Bonus əlavə edildikdə PassKit-ə sinxronizasiya
+- [ ] Tier yüksəldilməsi zamanı PassKit-ə sinxronizasiya
+- [ ] QR koddan Member ID çıxarma funksiyası
+- [ ] PassKit-dən müştəri məlumatlarını alma
+- [ ] Kamera icazəsi və error handling
+- [ ] Test və debugging
