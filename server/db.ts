@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, customers, transactions, InsertCustomer, InsertTransaction } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,86 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Customer management functions
+export async function getCustomerByPhone(phoneNumber: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get customer: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(customers).where(eq(customers.phoneNumber, phoneNumber)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getCustomerById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get customer: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createCustomer(customer: InsertCustomer) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const result = await db.insert(customers).values(customer);
+  return result;
+}
+
+export async function updateCustomer(id: number, updates: Partial<InsertCustomer>) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db.update(customers).set(updates).where(eq(customers.id, id));
+}
+
+export async function getAllCustomers() {
+  const db = await getDb();
+  if (!db) {
+    return [];
+  }
+
+  return await db.select().from(customers);
+}
+
+// Transaction management functions
+export async function createTransaction(transaction: InsertTransaction) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const result = await db.insert(transactions).values(transaction);
+  return result;
+}
+
+export async function getCustomerTransactions(customerId: number) {
+  const db = await getDb();
+  if (!db) {
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(transactions)
+    .where(eq(transactions.customerId, customerId))
+    .orderBy(desc(transactions.createdAt));
+}
+
+export async function getAllTransactions() {
+  const db = await getDb();
+  if (!db) {
+    return [];
+  }
+
+  return await db.select().from(transactions).orderBy(desc(transactions.createdAt));
+}
