@@ -12,6 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { Coffee, Scan, Calculator, Award, TrendingUp, Users } from "lucide-react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
+import QRScanner from "@/components/QRScanner";
 
 export default function Admin() {
   const { user, loading } = useAuth();
@@ -19,6 +20,7 @@ export default function Admin() {
   const [spentAmount, setSpentAmount] = useState("");
   const [note, setNote] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -89,6 +91,47 @@ export default function Admin() {
       spentAmount: `${spentAmount} AZN`,
       note: note || `Xərcləmə: ${spentAmount} AZN`,
     });
+  };
+
+  const handleQRScan = async (data: string) => {
+    try {
+      // QR koddan telefon nömrəsi və ya PassKit Member ID çıxarmaq
+      // PassKit QR kod formatı: passkit://member/{memberId}
+      let searchValue = data;
+      
+      if (data.includes("passkit://") || data.includes("member/")) {
+        // PassKit Member ID ilə axtarış
+        const memberId = data.split("/").pop() || data;
+        toast.info("PassKit Member ID ilə axtarılır...");
+        // TODO: PassKit Member ID ilə müştəri axtarışı
+        // const customer = await utils.client.customer.getByPassKitId.query({ passkitMemberId: memberId });
+        toast.error("PassKit inteqrasiya hələ aktiv deyil. Telefon nömrəsi ilə axtarın.");
+        return;
+      } else if (data.startsWith("+") || /^\d+$/.test(data)) {
+        // Telefon nömrəsi
+        searchValue = data;
+      } else {
+        // JSON format və ya başqa format
+        try {
+          const parsed = JSON.parse(data);
+          searchValue = parsed.phone || parsed.phoneNumber || parsed.memberId || data;
+        } catch {
+          searchValue = data;
+        }
+      }
+
+      setPhoneNumber(searchValue);
+      const customer = await utils.client.customer.getByPhone.query({ phoneNumber: searchValue });
+      if (customer) {
+        setSelectedCustomer(customer);
+        toast.success(`Müştəri tapıldı: ${customer.name}`);
+      } else {
+        toast.error("Müştəri tapılmadı");
+        setSelectedCustomer(null);
+      }
+    } catch (error: any) {
+      toast.error("Xəta: " + error.message);
+    }
   };
 
   if (loading) {
@@ -188,8 +231,12 @@ export default function Admin() {
                       onChange={(e) => setPhoneNumber(e.target.value)}
                     />
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-2">
                     <Button onClick={handleSearchCustomer}>Axtar</Button>
+                    <Button variant="outline" onClick={() => setShowQRScanner(true)}>
+                      <Scan className="w-4 h-4 mr-2" />
+                      QR Skan
+                    </Button>
                   </div>
                 </div>
 
@@ -383,6 +430,13 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        open={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onScan={handleQRScan}
+      />
     </div>
   );
 }
