@@ -101,3 +101,7 @@
 - [x] Bonus əlavə/azaltma zamanı real-vaxt yeniləmə
 - [x] Əməliyyat tarixçəsində "azaldıldı" növü göstərmək
 - [x] Admin panelində PIN autentifikasiya yoxlaması
+
+## Bug Fixes (v3.1)
+- [x] Admin panelində PIN autentifikasiya ilə user role yoxlamasını ayırmaq
+- [x] Kassir PIN ilə daxil olanlar üçün səhifəni işlək etmək

@@ -47,13 +47,9 @@ export default function Admin() {
 
   const utils = trpc.useUtils();
 
-  const { data: allCustomers } = trpc.customer.list.useQuery(undefined, {
-    enabled: user?.role === "admin",
-  });
+  const { data: allCustomers } = trpc.customer.list.useQuery();
 
-  const { data: allTransactions } = trpc.transaction.list.useQuery(undefined, {
-    enabled: user?.role === "admin",
-  });
+  const { data: allTransactions } = trpc.transaction.list.useQuery();
 
   const cashbackQuery = trpc.cashback.calculate.useQuery(
     { spentAmount: parseFloat(spentAmount) || 0 },
