@@ -24,7 +24,8 @@ export default function AdminLogin({ role }: AdminLoginProps) {
         localStorage.setItem(`${role}Auth`, "true");
         localStorage.setItem(`${role}AuthTime`, Date.now().toString());
         toast.success(`${role === "admin" ? "Admin" : "Kassir"} panelə xoş gəlmisiniz!`);
-        setLocation("/admin");
+        // Admin → /admin, Kassir → /cashier
+        setLocation(role === "admin" ? "/admin" : "/cashier");
       } else {
         toast.error("Yanlış PIN kod");
         setPin("");

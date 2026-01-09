@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
+import Cashier from "@/pages/Cashier";
 import AdminLogin from "@/pages/AdminLogin";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -21,6 +22,7 @@ function Router() {
         {() => <AdminLogin role="cashier" />}
       </Route>
       <Route path={"/admin"} component={Admin} />
+      <Route path={"/cashier"} component={Cashier} />
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
     </Switch>

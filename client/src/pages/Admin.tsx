@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,28 +11,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { Coffee, Scan, Calculator, Award, TrendingUp, Users } from "lucide-react";
 import { toast } from "sonner";
-import { getLoginUrl } from "@/const";
 import QRScanner from "@/components/QRScanner";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const { user, loading } = useAuth();
 
-  // PIN autentifikasiya yoxlaması
+  // PIN autentifikasiya yoxlaması - yalnız admin
   useEffect(() => {
     const adminAuth = localStorage.getItem("adminAuth");
-    const cashierAuth = localStorage.getItem("cashierAuth");
     const adminAuthTime = localStorage.getItem("adminAuthTime");
-    const cashierAuthTime = localStorage.getItem("cashierAuthTime");
 
     // Session 8 saat sonra bitir
     const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 saat
 
     const isAdminValid = adminAuth === "true" && adminAuthTime && (Date.now() - parseInt(adminAuthTime)) < SESSION_DURATION;
-    const isCashierValid = cashierAuth === "true" && cashierAuthTime && (Date.now() - parseInt(cashierAuthTime)) < SESSION_DURATION;
 
-    if (!isAdminValid && !isCashierValid) {
-      toast.error("PIN kod tələb olunur");
+    if (!isAdminValid) {
+      toast.error("Admin PIN kodu tələb olunur");
       setLocation("/admin-login");
     }
   }, [setLocation]);
@@ -193,44 +187,7 @@ export default function Admin() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Admin Paneli</CardTitle>
-            <CardDescription>Daxil olmaq üçün giriş edin</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => (window.location.href = getLoginUrl())} className="w-full">
-              Giriş et
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (user.role !== "admin") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Giriş qadağandır</CardTitle>
-            <CardDescription>Bu səhifəyə yalnız adminlər daxil ola bilər</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  // PIN autentifikasiya artıq useEffect-də yoxlanılır
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
@@ -243,7 +200,7 @@ export default function Admin() {
             </div>
             <div>
               <h1 className="text-xl font-bold">Coffee Lin - Admin Panel</h1>
-              <p className="text-sm text-muted-foreground">İşçi: {user.name}</p>
+              <p className="text-sm text-muted-foreground">Admin Panel</p>
             </div>
           </div>
         </div>

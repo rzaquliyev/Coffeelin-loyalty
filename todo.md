@@ -105,3 +105,9 @@
 ## Bug Fixes (v3.1)
 - [x] Admin panelində PIN autentifikasiya ilə user role yoxlamasını ayırmaq
 - [x] Kassir PIN ilə daxil olanlar üçün səhifəni işlək etmək
+## Kassir Paneli Ayırılması (v3.2)
+- [x] Admin panelində OAuth user yoxlamasını silmək
+- [x] Ayrı Kassir paneli yaratmaq (/cashier)
+- [x] Kassir panelində yalnız: QR skan, axtarış, bonus əlavə
+- [x] Admin panelində: Bütün funksiyalar + bonus azaltma + müştəri/əməliyyat siyahısı
+- [x] AdminLogin-də düzgün yönləndirmə (admin→/admin, kassir→/cashier)
