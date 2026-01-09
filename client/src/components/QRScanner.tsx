@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { QrReader } from "react-qr-reader";
+import { useEffect, useRef, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,26 +13,81 @@ interface QRScannerProps {
 
 export default function QRScanner({ open, onClose, onScan }: QRScannerProps) {
   const [error, setError] = useState<string>("");
-  const [scanning, setScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const qrCodeRegionId = "qr-reader";
 
-  const handleScan = (result: any) => {
-    if (result) {
-      const scannedData = result?.text || result;
-      if (scannedData) {
-        setScanning(false);
-        onScan(scannedData);
-        onClose();
+  useEffect(() => {
+    if (open && !isScanning) {
+      startScanner();
+    }
+
+    return () => {
+      stopScanner();
+    };
+  }, [open]);
+
+  const startScanner = async () => {
+    try {
+      setError("");
+      setIsScanning(true);
+
+      // Html5Qrcode instance yaradırıq
+      if (!scannerRef.current) {
+        scannerRef.current = new Html5Qrcode(qrCodeRegionId);
       }
+
+      const qrCodeSuccessCallback = (decodedText: string) => {
+        console.log("QR kod oxundu:", decodedText);
+        onScan(decodedText);
+        stopScanner();
+        onClose();
+      };
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      };
+
+      // Arxa kamera ilə başlatmaq
+      await scannerRef.current.start(
+        { facingMode: "environment" },
+        config,
+        qrCodeSuccessCallback,
+        (errorMessage) => {
+          // Hər frame-də xəta mesajı gəlir, bunu ignore edirik
+          // console.log("QR scan error:", errorMessage);
+        }
+      );
+    } catch (err: any) {
+      console.error("Kamera başlatma xətası:", err);
+      setError(
+        "Kamera açıla bilmədi. Lütfən brauzerdə kamera icazəsi verin və səhifəni yeniləyin."
+      );
+      setIsScanning(false);
     }
   };
 
-  const handleError = (error: any) => {
-    console.error("QR Scanner error:", error);
-    setError("Kamera açıla bilmədi. Lütfən kamera icazəsi verin və ya başqa cihaz istifadə edin.");
+  const stopScanner = async () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (err) {
+        console.error("Scanner dayandırma xətası:", err);
+      }
+    }
+    setIsScanning(false);
+  };
+
+  const handleClose = () => {
+    stopScanner();
+    onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -50,19 +105,14 @@ export default function QRScanner({ open, onClose, onScan }: QRScannerProps) {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : (
-            <div className="relative">
-              {scanning && (
-                <div className="rounded-lg overflow-hidden border-2 border-primary">
-                  <QrReader
-                    onResult={handleScan}
-                    constraints={{ facingMode: "environment" }}
-                    containerStyle={{ width: "100%" }}
-                    videoStyle={{ width: "100%" }}
-                  />
-                </div>
-              )}
-              
-              <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="space-y-4">
+              <div
+                id={qrCodeRegionId}
+                className="rounded-lg overflow-hidden border-2 border-primary"
+                style={{ width: "100%" }}
+              />
+
+              <div className="text-center text-sm text-muted-foreground">
                 <p>QR kodu kamera görüş sahəsinə yerləşdirin</p>
                 <p className="mt-1">Avtomatik olaraq oxunacaq</p>
               </div>
@@ -70,7 +120,7 @@ export default function QRScanner({ open, onClose, onScan }: QRScannerProps) {
           )}
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               <X className="w-4 h-4 mr-2" />
               Bağla
             </Button>

@@ -111,3 +111,13 @@
 - [x] Kassir panelində yalnız: QR skan, axtarış, bonus əlavə
 - [x] Admin panelində: Bütün funksiyalar + bonus azaltma + müştəri/əməliyyat siyahısı
 - [x] AdminLogin-də düzgün yönləndirmə (admin→/admin, kassir→/cashier)
+
+## PassKit İnteqrasiya Testi (v3.3)
+- [ ] PassKit API əlaqəsini test etmək
+- [ ] Test müştərisi yaratmaq və Apple Wallet kartı yoxlamaq
+- [ ] PassKit member yaratma funksiyasını test etmək
+
+## Bug Fixes (v3.3)
+- [x] QR scanner kamera icazəsi problemi - mobil cihazda kamera açılmır
+- [x] Video stream düzgün göstərilmir
+- [x] react-qr-reader əvəzinə html5-qrcode kitabxanasına keçid
