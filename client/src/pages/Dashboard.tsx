@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { trpc } from "@/lib/trpc";
-import { Coffee, LogOut, Award, TrendingUp, QrCode as QrCodeIcon } from "lucide-react";
+import { Coffee, LogOut, Award, TrendingUp, QrCode as QrCodeIcon, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 
@@ -90,10 +90,16 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Bonus Proqramı</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Çıxış
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setLocation("/admin")}>
+              <UserCog className="w-4 h-4 mr-2" />
+              Admin
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Çıxış
+            </Button>
+          </div>
         </div>
       </div>
 

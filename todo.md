@@ -79,3 +79,12 @@
 - [ ] PassKit-dən müştəri məlumatlarını alma
 - [ ] Kamera icazəsi və error handling
 - [ ] Test və debugging
+
+## Bug Fixes
+- [x] routers.ts faylındakı TypeScript xətalarını düzəltmək
+
+## Naviqasiya və İstifadəçi Təcrübəsi
+- [x] Login səhifəsinə admin və kassir linkləri əlavə etmək
+- [x] Dashboard-a admin panel düyməsi əlavə etmək
+- [x] Admin panelində avtomatik 5% cashback hesablama (məbləğ daxil edildikdə)
+- [x] Bonus əlavə edildikdə müştəri kartında dərhal görünməsi
