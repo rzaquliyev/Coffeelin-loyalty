@@ -91,7 +91,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setLocation("/admin")}>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/admin-login")}>
               <UserCog className="w-4 h-4 mr-2" />
               Admin
             </Button>

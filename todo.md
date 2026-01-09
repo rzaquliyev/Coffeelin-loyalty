@@ -88,3 +88,16 @@
 - [x] Dashboard-a admin panel düyməsi əlavə etmək
 - [x] Admin panelində avtomatik 5% cashback hesablama (məbləğ daxil edildikdə)
 - [x] Bonus əlavə edildikdə müştəri kartında dərhal görünməsi
+
+## PIN Kod Autentifikasiya Sistemi
+- [x] Admin və kassir üçün PIN kod giriş səhifəsi yaratmaq
+- [x] Backend-də PIN kod yoxlama funksiyaları əlavə etmək
+- [x] ADMIN_PIN və CASHIER_PIN environment dəyişənləri konfiqurasiya etmək
+- [x] Session management əlavə etmək (PIN daxil edildəkdən sonra)
+- [x] PIN dəyişdirmə təlimatı hazırlamaq
+
+## Bonus İdarəetmə Funksiyaları
+- [x] Admin panelində bonus azaltma funksiyası əlavə etmək
+- [x] Bonus əlavə/azaltma zamanı real-vaxt yeniləmə
+- [x] Əməliyyat tarixçəsində "azaldıldı" növü göstərmək
+- [x] Admin panelində PIN autentifikasiya yoxlaması

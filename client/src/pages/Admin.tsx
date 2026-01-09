@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +16,34 @@ import { getLoginUrl } from "@/const";
 import QRScanner from "@/components/QRScanner";
 
 export default function Admin() {
+  const [, setLocation] = useLocation();
   const { user, loading } = useAuth();
+
+  // PIN autentifikasiya yoxlaması
+  useEffect(() => {
+    const adminAuth = localStorage.getItem("adminAuth");
+    const cashierAuth = localStorage.getItem("cashierAuth");
+    const adminAuthTime = localStorage.getItem("adminAuthTime");
+    const cashierAuthTime = localStorage.getItem("cashierAuthTime");
+
+    // Session 8 saat sonra bitir
+    const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 saat
+
+    const isAdminValid = adminAuth === "true" && adminAuthTime && (Date.now() - parseInt(adminAuthTime)) < SESSION_DURATION;
+    const isCashierValid = cashierAuth === "true" && cashierAuthTime && (Date.now() - parseInt(cashierAuthTime)) < SESSION_DURATION;
+
+    if (!isAdminValid && !isCashierValid) {
+      toast.error("PIN kod tələb olunur");
+      setLocation("/admin-login");
+    }
+  }, [setLocation]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [spentAmount, setSpentAmount] = useState("");
   const [note, setNote] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [manualBonusAmount, setManualBonusAmount] = useState("");
+  const [manualNote, setManualNote] = useState("");
 
   const utils = trpc.useUtils();
 
@@ -46,6 +69,22 @@ export default function Admin() {
       setSelectedCustomer(null);
       utils.customer.list.invalidate();
       utils.transaction.list.invalidate();
+    },
+    onError: (error: any) => {
+      toast.error("Xəta: " + error.message);
+    },
+  });
+
+  const manualBonusMutation = trpc.transaction.create.useMutation({
+    onSuccess: () => {
+      toast.success("Bonus uğurla yeniləndi!");
+      setManualBonusAmount("");
+      setManualNote("");
+      utils.customer.getById.invalidate({ id: selectedCustomer.id });
+      utils.customer.list.invalidate();
+      utils.transaction.list.invalidate();
+      // Müştəri məlumatlarını yenilə
+      handleSearchCustomer();
     },
     onError: (error: any) => {
       toast.error("Xəta: " + error.message);
@@ -90,6 +129,30 @@ export default function Admin() {
       amount: bonusAmount,
       spentAmount: `${spentAmount} AZN`,
       note: note || `Xərcləmə: ${spentAmount} AZN`,
+    });
+  };
+
+  const handleManualBonus = (action: "add" | "deduct") => {
+    if (!selectedCustomer) {
+      toast.error("Əvvəlcə müştəri axtarın");
+      return;
+    }
+
+    if (!manualBonusAmount || parseFloat(manualBonusAmount) <= 0) {
+      toast.error("Bonus miqdarını daxil edin");
+      return;
+    }
+
+    const amount = parseFloat(manualBonusAmount);
+    const finalAmount = action === "deduct" ? -amount : amount;
+    const type = action === "deduct" ? "redeemed" : "earned";
+
+    manualBonusMutation.mutate({
+      customerId: selectedCustomer.id,
+      amount: Math.abs(finalAmount),
+      note: manualNote || (action === "deduct" ? "Admin tərəfindən azaldıldı" : "Admin tərəfindən əlavə edildi"),
+      spentAmount: undefined,
+      type: type as "earned" | "redeemed",
     });
   };
 
@@ -336,6 +399,63 @@ export default function Admin() {
                     >
                       {addBonusMutation.isPending ? "Əlavə edilir..." : "Bonus Əlavə Et"}
                     </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Manual Bonus Əlave/Azaltma */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Award className="w-5 h-5" />
+                      Əlave Bonus Əlave/Azaltma
+                    </CardTitle>
+                    <CardDescription>
+                      Müştəriyə istədiyiniz miqdarda bonus əlavə edin və ya azaldın
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="manualBonus">Bonus miqdarı</Label>
+                      <Input
+                        id="manualBonus"
+                        type="number"
+                        placeholder="0"
+                        value={manualBonusAmount}
+                        onChange={(e) => setManualBonusAmount(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Müsbət ədəd əlavə edir, mənfi ədəd azaldır
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="manualNote">Qeyd</Label>
+                      <Textarea
+                        id="manualNote"
+                        placeholder="Səbəb qeyd edin..."
+                        value={manualNote}
+                        onChange={(e) => setManualNote(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => handleManualBonus("add")}
+                        className="w-full"
+                        disabled={!manualBonusAmount || parseFloat(manualBonusAmount) <= 0 || manualBonusMutation.isPending}
+                        variant="default"
+                      >
+                        {manualBonusMutation.isPending ? "Əlavə edilir..." : "Bonus Əlavə Et"}
+                      </Button>
+                      <Button
+                        onClick={() => handleManualBonus("deduct")}
+                        className="w-full"
+                        disabled={!manualBonusAmount || parseFloat(manualBonusAmount) <= 0 || manualBonusMutation.isPending}
+                        variant="destructive"
+                      >
+                        {manualBonusMutation.isPending ? "Azaldılır..." : "Bonus Azalt"}
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </>

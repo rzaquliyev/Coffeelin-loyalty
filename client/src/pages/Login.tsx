@@ -157,7 +157,7 @@ export default function Login() {
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant="outline"
-              onClick={() => setLocation("/admin")}
+              onClick={() => setLocation("/admin-login")}
               className="w-full"
             >
               <UserCog className="w-4 h-4 mr-2" />
@@ -165,7 +165,7 @@ export default function Login() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setLocation("/admin")}
+              onClick={() => setLocation("/cashier-login")}
               className="w-full"
             >
               <ScanLine className="w-4 h-4 mr-2" />

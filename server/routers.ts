@@ -49,6 +49,34 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+    /**
+     * Admin və kassir üçün PIN kod yoxlama
+     */
+    verifyPin: publicProcedure
+      .input(
+        z.object({
+          pin: z.string().length(4, "PIN kod 4 rəqəmdən ibarət olmalıdır"),
+          role: z.enum(["admin", "cashier"]),
+        })
+      )
+      .mutation(({ input }) => {
+        const adminPin = process.env.ADMIN_PIN || "1234";
+        const cashierPin = process.env.CASHIER_PIN || "5678";
+
+        const expectedPin = input.role === "admin" ? adminPin : cashierPin;
+        const valid = input.pin === expectedPin;
+
+        if (valid) {
+          console.log(`[Auth] ${input.role} PIN düzgündür`);
+        } else {
+          console.log(`[Auth] ${input.role} PIN yanlışdır`);
+        }
+
+        return {
+          valid,
+          role: input.role,
+        };
+      }),
   }),
 
   /**
@@ -186,6 +214,7 @@ export const appRouter = router({
           amount: z.number().min(1, "Bonus miqdarı 0-dan böyük olmalıdır"),
           spentAmount: z.string().optional(),
           note: z.string().optional(),
+          type: z.enum(["earned", "redeemed"]).optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -195,17 +224,21 @@ export const appRouter = router({
           throw new Error("Müştəri tapılmadı");
         }
 
+        const transactionType = input.type || "earned";
+        const isDeduction = transactionType === "redeemed";
+
         // 2. Database-ə əməliyyat əlavə et
         const transaction = await createTransaction({
           customerId: input.customerId,
           amount: input.amount,
-          type: "earned",
+          type: transactionType,
           note: input.note || `${input.spentAmount || ""} xərcləmə`,
           spentAmount: input.spentAmount,
         });
 
         // 3. Müştərinin yeni balansını hesabla
-        const newBalance = customer.bonusBalance + input.amount;
+        const balanceChange = isDeduction ? -input.amount : input.amount;
+        const newBalance = Math.max(0, customer.bonusBalance + balanceChange); // Balans mənfi ola bilməz
 
         // 4. Database-də bonus balansını yenilə
         await updateCustomerBalance(customer.id, newBalance);
