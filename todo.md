@@ -121,3 +121,8 @@
 - [x] QR scanner kamera icazəsi problemi - mobil cihazda kamera açılmır
 - [x] Video stream düzgün göstərilmir
 - [x] react-qr-reader əvəzinə html5-qrcode kitabxanasına keçid
+
+## Bug Fixes (v3.4)
+- [x] QRScanner DOM element timing problemi - "qr-reader not found" xətası
+- [x] useEffect-də setTimeout əlavə etmək (100ms gecikimə)
+- [x] DOM element mövcudluğu yoxlaması əlavə edildi

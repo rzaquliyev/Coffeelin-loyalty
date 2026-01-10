@@ -19,7 +19,15 @@ export default function QRScanner({ open, onClose, onScan }: QRScannerProps) {
 
   useEffect(() => {
     if (open && !isScanning) {
-      startScanner();
+      // DOM element-in render olmasını gözləyirik
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+
+      return () => {
+        clearTimeout(timer);
+        stopScanner();
+      };
     }
 
     return () => {
@@ -31,6 +39,12 @@ export default function QRScanner({ open, onClose, onScan }: QRScannerProps) {
     try {
       setError("");
       setIsScanning(true);
+
+      // DOM element-in mövcudluğunu yoxlayırıq
+      const element = document.getElementById(qrCodeRegionId);
+      if (!element) {
+        throw new Error(`HTML Element with id=${qrCodeRegionId} not found`);
+      }
 
       // Html5Qrcode instance yaradırıq
       if (!scannerRef.current) {
